@@ -31,6 +31,8 @@
   --yellow-ink: #6B4E00;
   --red-bg: #FDE2E4;
   --pink-bg: #FFE3EF;
+  --rain-rgb: 61, 139, 253;
+  --rain-ink: #1F5FC4;
   --shadow: 0 2px 4px rgba(27, 31, 59, .05), 0 8px 24px rgba(27, 31, 59, .08);
   --glow: 0 0 6px rgba(255, 95, 162, .35);
   --radius: 18px;
@@ -55,6 +57,8 @@
     --yellow-ink: #FFD866;
     --red-bg: rgba(230, 57, 70, .2);
     --pink-bg: rgba(255, 95, 162, .16);
+    --rain-rgb: 110, 168, 255;
+    --rain-ink: #8DBBFF;
     --shadow: 0 2px 4px rgba(0, 0, 0, .25), 0 10px 28px rgba(0, 0, 0, .3);
     --glow: 0 0 8px rgba(255, 95, 162, .8), 0 0 22px rgba(255, 95, 162, .45);
     color-scheme: dark;
@@ -64,7 +68,7 @@
   --bg: #1B1F3B; --surface: #252A4D; --surface-2: #2F355E; --ink: #FFF4E6; --ink-2: #D2D4E8;
   --muted: #A5A8C4; --line: rgba(255, 255, 255, .10); --pink-ink: #FF8DC0; --red-ink: #FF8A93;
   --yellow-bg: rgba(255, 201, 60, .16); --yellow-ink: #FFD866; --red-bg: rgba(230, 57, 70, .2);
-  --pink-bg: rgba(255, 95, 162, .16); --shadow: 0 2px 4px rgba(0,0,0,.25), 0 10px 28px rgba(0,0,0,.3);
+  --pink-bg: rgba(255, 95, 162, .16); --rain-rgb: 110, 168, 255; --rain-ink: #8DBBFF; --shadow: 0 2px 4px rgba(0,0,0,.25), 0 10px 28px rgba(0,0,0,.3);
   --glow: 0 0 8px rgba(255, 95, 162, .8), 0 0 22px rgba(255, 95, 162, .45);
   color-scheme: dark;
 }
@@ -500,16 +504,45 @@ details.acc .in p { margin: 0 0 6px; }
 .tip-card h4 { margin: 0; font-size: 16px; }
 .tip-card p { margin: 2px 0 0; font-size: 15px; color: var(--ink-2); }
 
-/* ===== 하단 ===== */
-.credits { padding: 28px 16px 8px; font-size: 15px; color: var(--muted); }
-.credits h2 { font-size: 16px; margin: 0 0 6px; color: var(--ink-2); }
-.credits ul { margin: 0; padding-left: 18px; }
-.credits a { color: var(--ink-2); }
+/* ===== 날씨 ===== */
+.wnow { display: grid; grid-template-columns: 64px 1fr; gap: 12px; align-items: center; margin-top: 12px; background: var(--navy); color: #fff; border: 0; }
+.wnow .emo { font-size: 48px; line-height: 1; text-align: center; }
+.wnow .k { font-size: 15px; font-weight: 700; color: rgba(255,255,255,.8); }
+.wnow .t { font: 400 40px/1.1 var(--display); color: var(--yellow); text-shadow: 0 0 12px rgba(255,201,60,.4); font-variant-numeric: tabular-nums; }
+.wnow .s { font-size: 15px; color: rgba(255,255,255,.8); }
+.wsum { margin-top: 4px; }
+.wsum h3 { margin: 0 0 8px; font-size: 18px; }
+.wsum .badge { white-space: normal; margin: 0; padding: 4px 12px; }
+.wtable-wrap { padding: 8px 0; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.wtable { width: 100%; border-collapse: collapse; font-size: 15px; font-variant-numeric: tabular-nums; }
+.wtable th, .wtable td { padding: 8px 6px; text-align: center; white-space: nowrap; border-bottom: 1px solid var(--line); }
+.wtable tbody tr:last-child > * { border-bottom: 0; }
+.wtable thead th { font-size: 13px; font-weight: 700; color: var(--muted); line-height: 1.25; vertical-align: bottom; }
+.wtable tbody th { text-align: left; font-weight: 700; padding-left: 14px; position: sticky; left: 0; background: var(--surface); z-index: 1; }
+.wtable thead tr:first-child th:first-child { position: sticky; left: 0; background: var(--surface); z-index: 1; padding-left: 14px; text-align: left; }
+.wtable th small { display: block; font-size: 12px; color: var(--pink-ink); }
+.wtable .sky { font-size: 20px; }
+.wtable .tmp { font-weight: 700; }
+.wtable .mm { color: var(--rain-ink); }
+.wtable .na { color: var(--muted); }
+.wtable .pct { font-weight: 700; background: rgba(var(--rain-rgb), calc(var(--p) * .55)); }
+.wtable tr.now > * { background-color: var(--yellow-bg); }
+.wtable tr.now .pct { background-image: linear-gradient(rgba(var(--rain-rgb), calc(var(--p) * .55)), rgba(var(--rain-rgb), calc(var(--p) * .55))); }
+.wtable.hourly { min-width: 470px; }
+.wtable.compare tbody th b { display: block; font-size: 15px; }
+.wtable.compare tbody th span { display: block; font-size: 12px; color: var(--muted); font-weight: 500; }
+.wtable.compare .sky { display: flex; flex-direction: column; align-items: center; gap: 0; }
+.wtable.compare .sky .small { font-size: 12px; color: var(--muted); }
+.wtable .lo { color: var(--rain-ink); }
+.wtable .hi { color: var(--red-ink); }
+.wmeta { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+.wlinks { display: flex; flex-wrap: wrap; gap: 8px; }
 
+/* ===== 하단 ===== */
 .tabbar {
   position: fixed; left: 50%; bottom: 0; transform: translateX(-50%);
   width: 100%; max-width: 540px; z-index: 20;
-  display: grid; grid-template-columns: repeat(6, 1fr);
+  display: grid; grid-template-columns: repeat(7, 1fr);
   padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
   background: color-mix(in srgb, var(--surface) 92%, transparent);
   -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
@@ -574,7 +607,6 @@ details.acc .in p { margin: 0 0 6px; }
 
   <main id="view" tabindex="-1"></main>
 
-  <footer class="credits" id="credits"></footer>
 </div>
 
 <nav class="tabbar" aria-label="메뉴">
@@ -584,6 +616,7 @@ details.acc .in p { margin: 0 0 6px; }
   <a href="#stay" data-tab="stay"><svg viewBox="0 0 24 24"><path d="M3 19V7M3 15h18v4M21 15v-3a3 3 0 0 0-3-3h-7v6"/><circle cx="7" cy="11" r="2"/></svg><span>숙소</span></a>
   <a href="#cost" data-tab="cost"><svg viewBox="0 0 24 24"><path d="M6 3l6 8 6-8M12 11v10M7 13h10M7 17h10"/></svg><span>비용</span></a>
   <a href="#prep" data-tab="prep"><svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 9l2 2 4-4M8 16h8"/></svg><span>준비</span></a>
+  <a href="#weather" data-tab="weather"><svg viewBox="0 0 24 24"><path d="M7 18h10a4 4 0 0 0 .5-7.97A6 6 0 0 0 6 11a3.5 3.5 0 0 0 1 7z"/><path d="M9 21l1-2M13 21l1-2"/></svg><span>날씨</span></a>
 </nav>
 
 <script>
@@ -1007,7 +1040,7 @@ window.TRIP = {
      "moveTime": "1분",
      "yen": 4500.0,
      "cat": "식비",
-     "note": "★예약 11:00 (타베로그·구글맵) / 난바역 B14 출구 도보 1분 / 히츠마부시 약 ¥4,380 (2025 심사이바시점 후기 기준)",
+     "note": "★예약완료 10/26(월) 11:00 2인 / 난바역 B14 출구 도보 1분 / 히츠마부시 약 ¥4,380 (2025 심사이바시점 후기 기준)",
      "star": true
     },
     {
@@ -1335,7 +1368,7 @@ window.TRIP = {
    "slot": "D3 브런치",
    "kind": "히츠마부시·장어덮밥",
    "hours": "11:00~22:00 (인스타) / 일부 날 21:00",
-   "reserve": "★권장 (타베로그·구글맵)",
+   "reserve": "✅ 예약완료 10/26(월) 11:00 2인",
    "pay": "확인",
    "price": "히츠마부시 약 ¥4,380 / 一のうな丼 ¥5,480 (2025 후기)",
    "memo": "간사이식 장어 / 난바역 B14 도보 1분 / ☎ 080-2397-5246 / 38석"
@@ -1434,9 +1467,9 @@ window.TRIP = {
    "memo": "전화 +81-75-211-2501 / 창가석 요청 (이미 17:30 잡았으면 시라카와 산책 생략)"
   },
   {
-   "status": "🔴 지금",
+   "status": "✅ 완료",
    "item": "우나기노나카쇼 난바점 10/26 11:00 2인",
-   "memo": "타베로그 또는 구글맵 예약"
+   "memo": "10/26(월) 11:00 2인 예약완료"
   },
   {
    "status": "🟡 전날까지",
@@ -1520,7 +1553,7 @@ window.TRIP = {
     "label": "USJ 트와일라잇 (2매)",
     "perYen": null,
     "count": null,
-    "yen": 16470.5882352941,
+    "yen": 16470.58823529412,
     "won": 140000,
     "note": "실결제 ₩70,000×2 = ₩140,000 (사용자 제공) / 바우처 표기가는 ¥8,300",
     "currency": "KRW"
@@ -1529,7 +1562,7 @@ window.TRIP = {
     "label": "교토 숙소 1박",
     "perYen": null,
     "count": null,
-    "yen": 18430.9411764706,
+    "yen": 18430.941176470587,
     "won": 156663,
     "note": "₩156,663 (사용자 제공) / 잔액·숙박세 현장 결제 가능",
     "currency": "KRW"
@@ -1538,7 +1571,7 @@ window.TRIP = {
     "label": "항공 왕복 (2인)",
     "perYen": null,
     "count": null,
-    "yen": 96894.1176470588,
+    "yen": 96894.11764705883,
     "won": 823600,
     "note": "₩823,600 (2인, 사용자 제공) / 엔은 환율로 역산",
     "currency": "KRW"
@@ -1737,26 +1770,25 @@ window.TRIP = {
   const TRIP_DATES =["2026-10-24", "2026-10-25", "2026-10-26", "2026-10-27"];
 
   // ---------- 사진 ----------
-  // 우리 사진(images/)은 그대로, 나머지는 Wikimedia Commons 자유 라이선스 사진
-  const commons = (file, author, license) => ({
+  // 우리 사진(images/)은 그대로, 나머지는 Wikimedia Commons 사진
+  const commons = (file) => ({
     src: "https://commons.wikimedia.org/wiki/Special:FilePath/" + encodeURIComponent(file) + "?width=960",
-    credit: { file, author, license, url: "https://commons.wikimedia.org/wiki/File:" + encodeURIComponent(file.replace(/ /g, "_")) },
   });
   const PHOTOS = {
-    dotonbori: commons("Osaka Dotonbori yoru 02.jpg", "Sakai Yayoi", "CC0"),
-    neon: commons("Neon signs in Dotonbori (night).JPG", "Tokumeigakarinoaoshima", "CC0"),
-    pontocho: commons("Pontocho Alley, Kyoto - Flickr - Sergiy Galyonkin.jpg", "Sergiy Galyonkin", "CC BY-SA 2.0"),
-    fushimi: commons("Fushimi-Inari-Shrine-Senbon-Torii-2018-Luka-Peternel.jpg", "Luka Peternel", "CC BY-SA 4.0"),
-    unagi: commons("Hitsumabushi1.jpg", "Kanesue", "CC BY 2.0"),
-    takoyaki: commons("Takoyaki dish.jpg", "sayo ts", "CC0"),
-    pancake: commons("Souffle Pan Cake in Japan.jpg", "t-mizo", "CC BY 2.0"),
-    robata: commons("Robatayaki.jpg", "Schellack", "CC BY 3.0"),
-    usj: commons("Universal Studios Japan entrance.jpg", "Csiiiyu", "CC BY-SA 4.0"),
-    ramen: commons("Chashu Ramen with Egg.jpg", "Ceeseven", "CC BY-SA 4.0"),
-    sukiyaki: commons("Sukiyaki 01.jpg", "ajari", "CC BY 2.0"),
-    yatai: commons("Street stall in Japan 13.jpg", "Corpse Reviver", "CC BY-SA 3.0"),
-    izakaya: commons("August 2007, food at izakaya in Osaka.jpg", "Syced", "CC0"),
-    ekiben: commons("Train station bento (2784098404).jpg", "Connie", "CC BY 2.0"),
+    dotonbori: commons("Osaka Dotonbori yoru 02.jpg"),
+    neon: commons("Neon signs in Dotonbori (night).JPG"),
+    pontocho: commons("Pontocho Alley, Kyoto - Flickr - Sergiy Galyonkin.jpg"),
+    fushimi: commons("Fushimi-Inari-Shrine-Senbon-Torii-2018-Luka-Peternel.jpg"),
+    unagi: commons("Hitsumabushi1.jpg"),
+    takoyaki: commons("Takoyaki dish.jpg"),
+    pancake: commons("Souffle Pan Cake in Japan.jpg"),
+    robata: commons("Robatayaki.jpg"),
+    usj: commons("Universal Studios Japan entrance.jpg"),
+    ramen: commons("Chashu Ramen with Egg.jpg"),
+    sukiyaki: commons("Sukiyaki 01.jpg"),
+    yatai: commons("Street stall in Japan 13.jpg"),
+    izakaya: commons("August 2007, food at izakaya in Osaka.jpg"),
+    ekiben: commons("Train station bento (2784098404).jpg"),
     sushi: null,
     market: null,
   };
@@ -1992,7 +2024,7 @@ window.TRIP = {
       <div class="card">
         <div class="tl-head">
           <div class="main">
-            <div class="tl-time">${esc(it.time)}${it.star ? ' <span class="badge pink">★ 중요<\/span>' : ""}<\/div>
+            <div class="tl-time">${esc(it.time)}${it.star ? ' <span class="badge pink">★ 중요<\/span>' : ""}${/예약완료/.test(it.note) ? ' <span class="badge pink">✅ 예약완료<\/span>' : ""}<\/div>
             <h3 class="tl-title"><span class="emo" aria-hidden="true">${emo}<\/span>${esc(title)}<\/h3>
           <\/div>
           ${thumb}
@@ -2049,7 +2081,8 @@ window.TRIP = {
     const out = f.slot === "제외";
     const badges = [`<span class="badge">${esc(f.area)}<\/span>`, `<span class="badge ${f.slot === "대안" || out ? "" : "pink"}">${esc(f.slot)}<\/span>`, `<span class="badge">${esc(f.kind)}<\/span>`];
     if (/현금/.test(f.pay)) badges.push('<span class="badge red">💴 현금만<\/span>');
-    if (needsReserve(f)) badges.push(`<span class="badge pink">📞 예약 ${esc(f.reserve.replace(/★/g, "").split(" ")[0])}<\/span>`);
+    if (/예약완료/.test(f.reserve)) badges.push(`<span class="badge pink">✅ ${esc(f.reserve.replace(/^✅\s*/, ""))}<\/span>`);
+    else if (needsReserve(f)) badges.push(`<span class="badge pink">📞 예약 ${esc(f.reserve.replace(/★/g, "").split(" ")[0])}<\/span>`);
     return `<article class="card food ${out ? "out" : ""}">
       ${photo(k, e, "", f.name)}
       <div class="body">
@@ -2205,17 +2238,239 @@ window.TRIP = {
       <\/details>`).join("")}`;
   }
 
-  // ---------- 사진 출처 ----------
-  function renderCredits() {
-    const used = Object.values(PHOTOS).filter(Boolean);
-    document.getElementById("credits").innerHTML = `
-      <h2>사진 출처<\/h2>
-      <p style="margin:0 0 6px">우리 사진 © 형원 · 수민. 그 외 사진은 Wikimedia Commons 자유 라이선스 이미지입니다.<\/p>
-      <ul>${used.map((p) => `<li><a href="${esc(p.credit.url)}" target="_blank" rel="noopener">${esc(p.credit.file)}<\/a> — ${esc(p.credit.author)}, ${esc(p.credit.license)}<\/li>`).join("")}<\/ul>`;
+  // ---------- 화면: 날씨 ----------
+  // Open-Meteo(무료·키 없음)로 여러 나라 기상 모델 예보를 한 번에 받아 비교
+  const W_CITIES = {
+    osaka: { name: "오사카", lat: 34.6687, lon: 135.5013, tenki: "https://tenki.jp/forecast/6/30/6200/27100/", wn: "https://weathernews.jp/onebox/tenki/osaka/27100/", jma: "270000" },
+    kyoto: { name: "교토", lat: 34.9858, lon: 135.7588, tenki: "https://tenki.jp/forecast/6/29/6110/26100/", wn: "https://weathernews.jp/onebox/tenki/kyoto/26100/", jma: "260000" },
+  };
+  const W_MODELS = [
+    ["best_match", "종합", "여러 모델 자동 조합"],
+    ["jma_seamless", "일본 기상청", "JMA"],
+    ["ecmwf_ifs025", "유럽 중기예보센터", "ECMWF"],
+    ["gfs_seamless", "미국 해양대기청", "NOAA GFS"],
+    ["icon_seamless", "독일 기상청", "DWD ICON"],
+  ];
+  const W_PROB_COLS = [["best_match", "종합"], ["ecmwf_ifs025", "유럽"], ["gfs_seamless", "미국"], ["icon_seamless", "독일"]];
+  const W_TTL = 30 * 60e3;
+  const W_DAY_NAMES = ["일", "월", "화", "수", "목", "금", "토"];
+  let wCity = "osaka";
+  let wDay = "now";
+  const wState = {}; // city → { data, at, loading, error }
+
+  function wCode(code, isDay) {
+    if (code == null) return ["❔", "정보 없음"];
+    const night = isDay === 0;
+    if (code === 0) return [night ? "🌙" : "☀️", "맑음"];
+    if (code === 1) return [night ? "🌙" : "🌤️", "대체로 맑음"];
+    if (code === 2) return [night ? "☁️" : "⛅", "구름 조금"];
+    if (code === 3) return ["☁️", "흐림"];
+    if (code === 45 || code === 48) return ["🌫️", "안개"];
+    if (code >= 51 && code <= 57) return ["🌦️", "이슬비"];
+    if (code === 61 || code === 66) return ["🌧️", "약한 비"];
+    if (code === 63) return ["🌧️", "비"];
+    if (code === 65 || code === 67) return ["🌧️", "강한 비"];
+    if (code >= 71 && code <= 77) return ["🌨️", "눈"];
+    if (code === 80) return ["🌦️", "소나기"];
+    if (code === 81 || code === 82) return ["⛈️", "강한 소나기"];
+    if (code === 85 || code === 86) return ["🌨️", "눈 소나기"];
+    if (code >= 95) return ["⛈️", "뇌우"];
+    return ["☁️", "흐림"];
+  }
+
+  function wLoad(city, force) {
+    const st = wState[city] || (wState[city] = store.get("osaka-weather:" + city, {}));
+    // 실패했으면 자동으로 계속 다시 부르지 않고 '다시 시도' 버튼을 기다림
+    if (st.loading || (!force && (st.error || (st.data && Date.now() - st.at < W_TTL)))) return;
+    st.loading = true; st.error = null;
+    const c = W_CITIES[city];
+    const url = "https://api.open-meteo.com/v1/forecast?" + new URLSearchParams({
+      latitude: c.lat, longitude: c.lon, timezone: "Asia/Tokyo", forecast_days: 16, wind_speed_unit: "ms",
+      hourly: "temperature_2m,precipitation_probability,precipitation,weather_code,is_day",
+      current: "temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,precipitation,weather_code,is_day",
+      models: W_MODELS.map((m) => m[0]).join(","),
+    });
+    fetch(url)
+      .then((r) => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+      .then((data) => {
+        st.data = data; st.at = Date.now();
+        store.set("osaka-weather:" + city, { data, at: st.at }); // 데이터 끊겨도 마지막 예보는 보이게
+      })
+      .catch((err) => { st.error = err.message || "불러오기 실패"; })
+      .finally(() => { st.loading = false; if (tabName() === "weather") render(); });
+  }
+
+  const wNowKey = () => new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 13); // "2026-10-24T15" (일본=한국 시간)
+  const wDateLabel = (iso) => { const d = new Date(iso + "T00:00:00Z"); return `${d.getUTCMonth() + 1}/${d.getUTCDate()}(${W_DAY_NAMES[d.getUTCDay()]})`; };
+
+  function wSeries(h, v, m, idxs) {
+    const arr = h[`${v}_${m}`] || [];
+    return idxs.map((i) => arr[i]).filter((x) => x != null);
+  }
+  function wSummary(h, m, idxs) {
+    const t = wSeries(h, "temperature_2m", m, idxs);
+    if (!t.length) return null;
+    const p = wSeries(h, "precipitation_probability", m, idxs);
+    const c = wSeries(h, "weather_code", m, idxs);
+    return {
+      max: Math.max(...t), min: Math.min(...t),
+      prob: p.length ? Math.max(...p) : null,
+      rain: wSeries(h, "precipitation", m, idxs).reduce((s, x) => s + Math.max(0, x), 0),
+      code: c.length ? Math.max(...c) : null,
+    };
+  }
+  // 비 올 만한 시각들 → "9~11시, 15시"
+  function wRainHours(h, idxs) {
+    const hrs = idxs.filter((i) => {
+      const p = h.precipitation_probability_best_match[i], r = h.precipitation_best_match[i];
+      return (p != null && p >= 50) || (r != null && r >= 0.3);
+    }).map((i) => +h.time[i].slice(11, 13));
+    const ranges = [];
+    hrs.forEach((x) => {
+      const last = ranges[ranges.length - 1];
+      if (last && x === last[1] + 1) last[1] = x; else ranges.push([x, x]);
+    });
+    return ranges.map(([a, b]) => (a === b ? `${a}시` : `${a}~${b}시`)).join(", ");
+  }
+  const wTemp = (t) => (t == null ? "–" : Math.round(t) + "°");
+  const wMm = (r) => (r == null ? "–" : r < 0.05 ? "0" : r.toFixed(1));
+  const wPct = (p) => (p == null ? '<td class="na">–<\/td>' : `<td class="pct" style="--p:${(p / 100).toFixed(2)}">${p}<\/td>`);
+
+  function renderWeather() {
+    const city = W_CITIES[wCity];
+    wLoad(wCity);
+    const st = wState[wCity];
+    const cityChips = Object.entries(W_CITIES).map(([id, c]) =>
+      `<button class="chip" role="tab" data-wcity="${id}" aria-selected="${id === wCity}">${c.name}<\/button>`).join("");
+    const dayChips = [["now", "지금", "24시간"], ...TRIP_DATES.map((d, i) => [d, "DAY " + (i + 1), wDateLabel(d)])].map(([id, b, s]) =>
+      `<button class="chip" role="tab" data-wday="${id}" aria-selected="${id === wDay}"><b>${b}<\/b><span>${s}<\/span><\/button>`).join("");
+    const links = `
+      <h2 class="section-title">🔗 <span class="glow">다른 날씨 사이트<\/span><\/h2>
+      <div class="card wlinks">
+        <a class="btn" href="https://www.google.com/search?q=${encodeURIComponent(city.name + " 날씨")}" target="_blank" rel="noopener">구글 날씨<\/a>
+        <a class="btn ghost" href="${city.tenki}" target="_blank" rel="noopener">tenki.jp<\/a>
+        <a class="btn ghost" href="${city.wn}" target="_blank" rel="noopener">웨더뉴스<\/a>
+        <a class="btn ghost" href="https://www.jma.go.jp/bosai/forecast/#area_type=offices&area_code=${city.jma}" target="_blank" rel="noopener">일본 기상청<\/a>
+        <a class="btn ghost" href="https://www.windy.com/${city.lat}/${city.lon}" target="_blank" rel="noopener">Windy<\/a>
+      <\/div>`;
+    const head = `
+      <div class="filters" role="tablist" aria-label="도시 선택" style="margin-top:18px">${cityChips}<\/div>`;
+
+    if (!st.data) {
+      const msg = st.error
+        ? `<p>날씨를 불러오지 못했어요 (${esc(st.error)})<\/p><button class="btn" data-wretry>다시 시도<\/button>`
+        : '<p class="muted">날씨 불러오는 중… ⛅<\/p>';
+      return head + `<div class="card" style="margin-top:12px">${msg}<\/div>` + links;
+    }
+
+    const d = st.data, h = d.hourly, cur = d.current;
+    const nowKey = wNowKey();
+    let start = h.time.findIndex((t) => t.slice(0, 13) === nowKey);
+    if (start < 0) start = 0;
+    const range = (a, n) => Array.from({ length: n }, (_, k) => a + k).filter((i) => i < h.time.length);
+
+    let rows, all, title;
+    if (wDay === "now") {
+      rows = all = range(start, 24);
+      title = "앞으로 24시간";
+    } else {
+      all = h.time.map((t, i) => (t.startsWith(wDay) ? i : -1)).filter((i) => i >= 0);
+      rows = all.filter((i) => +h.time[i].slice(11, 13) >= 6);
+      title = wDateLabel(wDay) + " · DAY " + (TRIP_DATES.indexOf(wDay) + 1);
+    }
+
+    const [cEmo, cTxt] = wCode(cur.weather_code, cur.is_day);
+    const curCard = `
+      <div class="card wnow">
+        <div class="emo" aria-hidden="true">${cEmo}<\/div>
+        <div>
+          <div class="k">지금 ${esc(city.name)} · ${esc(cTxt)}<\/div>
+          <div class="t">${wTemp(cur.temperature_2m)}<\/div>
+          <div class="s">체감 ${wTemp(cur.apparent_temperature)} · 습도 ${cur.relative_humidity_2m}% · 바람 ${cur.wind_speed_10m}m/s${cur.precipitation > 0 ? ` · 비 ${wMm(cur.precipitation)}mm` : ""}<\/div>
+        <\/div>
+      <\/div>`;
+
+    let body;
+    if (!rows.length) {
+      body = '<div class="card"><p class="muted" style="margin:0">이 날짜는 아직 예보가 없거나 지난 날짜예요<\/p><\/div>';
+    } else {
+      const sums = W_MODELS.map(([m, name, en]) => [name, en, wSummary(h, m, all)]).filter((x) => x[2]);
+      const probs = sums.map((x) => x[2].prob).filter((p) => p != null);
+      const maxProb = probs.length ? Math.max(...probs) : 0;
+      const maxRain = Math.max(...sums.map((x) => x[2].rain));
+      const rainHrs = wRainHours(h, rows);
+      const advice = maxProb >= 60 || maxRain >= 3 ? ["red", "☔ 비 올 가능성 높아요 — 우산 꼭 챙기기"]
+        : maxProb >= 30 || maxRain >= 0.5 ? ["yellow", "🌂 비 올 수도 있어요 — 접이식 우산 추천"]
+        : ["pink", "☀️ 비 걱정은 거의 없어요"];
+
+      const compare = sums.map(([name, en, s]) => {
+        const [e, txt] = wCode(s.code, 1);
+        return `<tr>
+          <th scope="row"><b>${esc(name)}<\/b><span>${esc(en)}<\/span><\/th>
+          <td class="sky"><span aria-hidden="true">${e}<\/span><span class="small">${esc(txt)}<\/span><\/td>
+          <td class="tmp"><span class="lo">${wTemp(s.min)}<\/span> / <span class="hi">${wTemp(s.max)}<\/span><\/td>
+          ${wPct(s.prob)}
+          <td class="mm">${wMm(s.rain)}<\/td>
+        <\/tr>`;
+      }).join("");
+
+      const hourly = rows.map((i) => {
+        const [e] = wCode(h.weather_code_best_match[i], h.is_day_best_match[i]);
+        const hr = h.time[i].slice(11, 13);
+        const isNow = h.time[i].slice(0, 13) === nowKey;
+        const label = wDay === "now" && h.time[i].slice(0, 10) !== h.time[start].slice(0, 10) && hr === "00"
+          ? `<small>${wDateLabel(h.time[i].slice(0, 10))}<\/small>${+hr}시` : `${+hr}시`;
+        return `<tr class="${isNow ? "now" : ""}">
+          <th scope="row">${isNow ? "지금" : label}<\/th>
+          <td class="sky" aria-label="${esc(wCode(h.weather_code_best_match[i], 1)[1])}">${e}<\/td>
+          <td class="tmp">${wTemp(h.temperature_2m_best_match[i])}<\/td>
+          <td class="mm">${wMm(h.precipitation_best_match[i])}<\/td>
+          ${W_PROB_COLS.map(([m]) => wPct((h[`precipitation_probability_${m}`] || [])[i])).join("")}
+          <td class="mm">${wMm((h.precipitation_jma_seamless || [])[i])}<\/td>
+        <\/tr>`;
+      }).join("");
+
+      body = `
+        <div class="card wsum">
+          <h3>${esc(title)}<\/h3>
+          <p class="badge ${advice[0]}">${advice[1]}<\/p>
+          ${rainHrs ? `<p class="small" style="margin:8px 0 0">🕒 비 올 만한 시간: <b>${rainHrs}<\/b><\/p>` : ""}
+        <\/div>
+
+        <h2 class="section-title">📊 <span class="glow">업체별 예보 비교<\/span><\/h2>
+        <div class="card wtable-wrap">
+          <table class="wtable compare">
+            <thead><tr><th scope="col">예보 기관<\/th><th scope="col">날씨<\/th><th scope="col">최저/최고<\/th><th scope="col">비 확률<\/th><th scope="col">강수량<\/th><\/tr><\/thead>
+            <tbody>${compare}<\/tbody>
+          <\/table>
+          <p class="small muted" style="margin:8px 0 0">비 확률은 % · 강수량은 mm (${wDay === "now" ? "24시간" : "하루"} 합계). 일본 기상청은 확률을 주지 않아요. 기관마다 다르면 높은 쪽 기준으로 준비하세요.<\/p>
+        <\/div>
+
+        <h2 class="section-title">⏱️ <span class="glow">시간별 날씨<\/span><\/h2>
+        <div class="card wtable-wrap">
+          <table class="wtable hourly">
+            <thead>
+              <tr><th rowspan="2" scope="col">시각<\/th><th rowspan="2" scope="col">날씨<\/th><th rowspan="2" scope="col">기온<\/th><th rowspan="2" scope="col">강수량<br>mm<\/th><th colspan="4" scope="colgroup">비 올 확률 %<\/th><th rowspan="2" scope="col">일본<br>기상청<br>mm<\/th><\/tr>
+              <tr>${W_PROB_COLS.map(([, n]) => `<th scope="col">${n}<\/th>`).join("")}<\/tr>
+            <\/thead>
+            <tbody>${hourly}<\/tbody>
+          <\/table>
+        <\/div>
+        <p class="small muted">← 표는 옆으로 밀어서 볼 수 있어요 · 날씨·기온·강수량은 종합 예보 기준<\/p>`;
+    }
+
+    const updated = new Date(st.at + 9 * 3600e3).toISOString().slice(11, 16);
+    return head + curCard + `
+      <div class="filters" role="tablist" aria-label="날짜 선택">${dayChips}<\/div>
+      ${body}
+      <p class="small muted wmeta">업데이트 ${updated} (한국·일본 시간)${st.loading ? " · 새로 불러오는 중…" : ""}${st.error ? " · ⚠ 최신 예보를 못 불러와 저장된 예보 표시" : ""}
+        <button class="btn ghost" data-wretry>새로고침<\/button><\/p>
+      <p class="small muted">예보 데이터: Open-Meteo (일본 기상청·ECMWF·NOAA·DWD 모델)<\/p>
+      ${links}`;
   }
 
   // ---------- 라우터 ----------
-  const VIEWS = { home: renderHome, plan: renderPlan, food: renderFood, stay: renderStay, cost: renderCost, prep: renderPrep };
+  const VIEWS = { home: renderHome, plan: renderPlan, food: renderFood, stay: renderStay, cost: renderCost, prep: renderPrep, weather: renderWeather };
   const view = document.getElementById("view");
   function tabName() { const h = location.hash.slice(1); return VIEWS[h] ? h : "home"; }
   function render() {
@@ -2243,6 +2498,11 @@ window.TRIP = {
     }
     const f = e.target.closest("[data-filter]");
     if (f) { foodFilter = f.dataset.filter; render(); return; }
+    const wc = e.target.closest("[data-wcity]");
+    if (wc) { wCity = wc.dataset.wcity; render(); return; }
+    const wd = e.target.closest("[data-wday]");
+    if (wd) { wDay = wd.dataset.wday; render(); return; }
+    if (e.target.closest("[data-wretry]")) { wLoad(wCity, true); render(); return; }
     const c = e.target.closest("[data-copy]");
     if (c) {
       const text = c.dataset.copy;
@@ -2272,7 +2532,6 @@ window.TRIP = {
   }
 
   renderTogether();
-  renderCredits();
   render();
 })();
 </script>
