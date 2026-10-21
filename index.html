@@ -528,7 +528,10 @@ details.acc .in p { margin: 0 0 6px; }
 .wtable .pct { font-weight: 700; background: rgba(var(--rain-rgb), calc(var(--p) * .55)); }
 .wtable tr.now > * { background-color: var(--yellow-bg); }
 .wtable tr.now .pct { background-image: linear-gradient(rgba(var(--rain-rgb), calc(var(--p) * .55)), rgba(var(--rain-rgb), calc(var(--p) * .55))); }
-.wtable.hourly { min-width: 470px; }
+.wtable.hourly th, .wtable.hourly td { min-width: 52px; }
+.wtable.hourly thead th { vertical-align: middle; }
+.wwindy { padding: 0; overflow: hidden; }
+.wwindy iframe { display: block; width: 100%; height: 480px; border: 0; }
 .wtable.compare tbody th b { display: block; font-size: 15px; }
 .wtable.compare tbody th span { display: block; font-size: 12px; color: var(--muted); font-weight: 500; }
 .wtable.compare .sky { display: flex; flex-direction: column; align-items: center; gap: 0; }
@@ -2239,92 +2242,246 @@ window.TRIP = {
   }
 
   // ---------- 화면: 날씨 ----------
-  // Open-Meteo(무료·키 없음)로 여러 나라 기상 모델 예보를 한 번에 받아 비교
+  // 출처 5곳을 나란히 비교: 종합(Open-Meteo) · 일본 기상청(공식 예보) · Windy(기본 모델 ECMWF)
+  // · 노르웨이 기상청(MET Norway) · 웨더뉴스(공개 API가 없어 GitHub Actions 가 1시간마다 weathernews.json 으로 저장)
   const W_CITIES = {
-    osaka: { name: "오사카", lat: 34.6687, lon: 135.5013, tenki: "https://tenki.jp/forecast/6/30/6200/27100/", wn: "https://weathernews.jp/onebox/tenki/osaka/27100/", jma: "270000" },
-    kyoto: { name: "교토", lat: 34.9858, lon: 135.7588, tenki: "https://tenki.jp/forecast/6/29/6110/26100/", wn: "https://weathernews.jp/onebox/tenki/kyoto/26100/", jma: "260000" },
+    osaka: {
+      name: "오사카", lat: 34.6687, lon: 135.5013, jma: "270000",
+      tenki: "https://tenki.jp/forecast/6/30/6200/27100/", wn: "https://weathernews.jp/onebox/tenki/osaka/27100/",
+      yr: "https://www.yr.no/en/forecast/daily-table/2-1853909/Japan/Osaka/Osaka",
+    },
+    kyoto: {
+      name: "교토", lat: 34.9858, lon: 135.7588, jma: "260000",
+      tenki: "https://tenki.jp/forecast/6/29/6110/26100/", wn: "https://weathernews.jp/onebox/tenki/kyoto/26100/",
+      yr: "https://www.yr.no/en/forecast/daily-table/2-1857910/Japan/Kyoto/Kyoto",
+    },
   };
-  const W_MODELS = [
-    ["best_match", "종합", "여러 모델 자동 조합"],
-    ["jma_seamless", "일본 기상청", "JMA"],
-    ["ecmwf_ifs025", "유럽 중기예보센터", "ECMWF"],
-    ["gfs_seamless", "미국 해양대기청", "NOAA GFS"],
-    ["icon_seamless", "독일 기상청", "DWD ICON"],
+  // [id, 이름, 설명, 표 머리글]
+  const W_SRC = [
+    ["om", "종합", "여러 모델 자동 조합", "종합"],
+    ["jma", "일본 기상청", "JMA 공식 예보", "기상청"],
+    ["windy", "Windy", "기본 모델 ECMWF", "Windy"],
+    ["metno", "노르웨이 기상청", "MET Norway · yr.no", "노르웨이"],
+    ["wn", "웨더뉴스", "Weathernews", "웨더<br>뉴스"],
   ];
-  const W_PROB_COLS = [["best_match", "종합"], ["ecmwf_ifs025", "유럽"], ["gfs_seamless", "미국"], ["icon_seamless", "독일"]];
+  const W_METRICS = [["p", "☔ 비 확률"], ["r", "💧 강수량"], ["t", "🌡️ 기온"], ["w", "🌤️ 날씨"]];
+  const WN_JSON = "https://moonbreaker8.github.io/Project_moon/weathernews.json";
   const W_TTL = 30 * 60e3;
   const W_DAY_NAMES = ["일", "월", "화", "수", "목", "금", "토"];
   let wCity = "osaka";
   let wDay = "now";
-  const wState = {}; // city → { data, at, loading, error }
+  let wMetric = "p";
+  const wState = {}; // city → { om, jma, metno, wn } 각각 { data, at, loading, error }
 
-  function wCode(code, isDay) {
-    if (code == null) return ["❔", "정보 없음"];
+  // 날씨 표시 = [이모지, 설명, 심한 정도]  (하루 대표 날씨는 심한 쪽으로)
+  function wmo(code, isDay) {
+    if (code == null) return null;
     const night = isDay === 0;
-    if (code === 0) return [night ? "🌙" : "☀️", "맑음"];
-    if (code === 1) return [night ? "🌙" : "🌤️", "대체로 맑음"];
-    if (code === 2) return [night ? "☁️" : "⛅", "구름 조금"];
-    if (code === 3) return ["☁️", "흐림"];
-    if (code === 45 || code === 48) return ["🌫️", "안개"];
-    if (code >= 51 && code <= 57) return ["🌦️", "이슬비"];
-    if (code === 61 || code === 66) return ["🌧️", "약한 비"];
-    if (code === 63) return ["🌧️", "비"];
-    if (code === 65 || code === 67) return ["🌧️", "강한 비"];
-    if (code >= 71 && code <= 77) return ["🌨️", "눈"];
-    if (code === 80) return ["🌦️", "소나기"];
-    if (code === 81 || code === 82) return ["⛈️", "강한 소나기"];
-    if (code === 85 || code === 86) return ["🌨️", "눈 소나기"];
-    if (code >= 95) return ["⛈️", "뇌우"];
-    return ["☁️", "흐림"];
+    if (code === 0) return [night ? "🌙" : "☀️", "맑음", 0];
+    if (code === 1) return [night ? "🌙" : "🌤️", "대체로 맑음", 1];
+    if (code === 2) return [night ? "☁️" : "⛅", "구름 조금", 1];
+    if (code === 3) return ["☁️", "흐림", 2];
+    if (code === 45 || code === 48) return ["🌫️", "안개", 2];
+    if (code >= 51 && code <= 57) return ["🌦️", "이슬비", 3];
+    if (code === 61 || code === 66) return ["🌧️", "약한 비", 3];
+    if (code === 63) return ["🌧️", "비", 4];
+    if (code === 65 || code === 67) return ["🌧️", "강한 비", 5];
+    if (code >= 71 && code <= 77) return ["🌨️", "눈", 5];
+    if (code === 80) return ["🌦️", "소나기", 3];
+    if (code === 81 || code === 82) return ["⛈️", "강한 소나기", 5];
+    if (code === 85 || code === 86) return ["🌨️", "눈 소나기", 5];
+    if (code >= 95) return ["⛈️", "뇌우", 6];
+    return ["☁️", "흐림", 2];
+  }
+  // 일본 기상청·웨더뉴스 날씨 코드 (100번대 맑음, 200번대 흐림, 300번대 비, 400번대 눈)
+  const TELOP_RAIN = [102, 103, 106, 107, 108, 112, 113, 114, 118, 119, 120, 121, 122, 125, 126, 127, 128, 140,
+    202, 206, 207, 208, 212, 213, 214, 218, 219, 220, 221, 222, 224, 225, 226, 240];
+  const TELOP_SNOW = [104, 105, 115, 116, 117, 204, 205, 215, 216, 217, 228, 229, 230];
+  function telop(c) {
+    if (c == null || isNaN(c)) return null;
+    if (c === 500) return ["🌙", "맑음", 0];
+    if (c === 600) return ["🌤️", "옅은 구름", 1];
+    if (c === 100) return ["☀️", "맑음", 0];
+    if (c === 200) return ["☁️", "흐림", 2];
+    if (c === 209) return ["🌫️", "안개", 2];
+    if (c === 203) return ["🌦️", "흐리고 때때로 비", 3];
+    if (TELOP_SNOW.includes(c)) return ["🌨️", c < 200 ? "맑고 한때 눈" : "흐리고 한때 눈", 4];
+    if (TELOP_RAIN.includes(c)) return ["🌦️", c < 200 ? "맑고 한때 비" : "흐리고 한때 비", 3];
+    const head = Math.floor(c / 100);
+    if (head === 1) return ["🌤️", "맑다 흐림", 1];
+    if (head === 2) return ["⛅", "흐리다 맑음", 1];
+    if (c === 301 || c === 311) return ["🌦️", "비 후 맑음", 3];
+    if (c === 308) return ["⛈️", "폭풍우", 6];
+    if (head === 3) return ["🌧️", c === 300 ? "비" : "비 (때때로 그침)", 4];
+    if (head === 4) return ["🌨️", "눈", 5];
+    return null;
+  }
+  // 노르웨이 기상청 symbol_code (예: lightrain, partlycloudy_day)
+  function yrSym(s) {
+    if (!s) return null;
+    const night = /_night$/.test(s);
+    const b = s.replace(/_(day|night|polartwilight)$/, "");
+    if (/thunder/.test(b)) return ["⛈️", "뇌우", 6];
+    if (/snow|sleet/.test(b)) return ["🌨️", /sleet/.test(b) ? "진눈깨비" : "눈", 5];
+    if (/^heavyrain/.test(b)) return ["🌧️", "강한 비", 5];
+    if (/^lightrain/.test(b)) return ["🌦️", "약한 비", 3];
+    if (/^rain/.test(b)) return ["🌧️", "비", 4];
+    if (b === "fog") return ["🌫️", "안개", 2];
+    if (b === "cloudy") return ["☁️", "흐림", 2];
+    if (b === "partlycloudy") return [night ? "☁️" : "⛅", "구름 조금", 1];
+    if (b === "fair") return [night ? "🌙" : "🌤️", "대체로 맑음", 1];
+    if (b === "clearsky") return [night ? "🌙" : "☀️", "맑음", 0];
+    return null;
   }
 
-  function wLoad(city, force) {
-    const st = wState[city] || (wState[city] = store.get("osaka-weather:" + city, {}));
-    // 실패했으면 자동으로 계속 다시 부르지 않고 '다시 시도' 버튼을 기다림
-    if (st.loading || (!force && (st.error || (st.data && Date.now() - st.at < W_TTL)))) return;
-    st.loading = true; st.error = null;
-    const c = W_CITIES[city];
+  // 시간 키 "2026-10-24T15" (일본 = 한국 시간)
+  const jstKey = (d) => new Date(d.getTime() + 9 * 3600e3).toISOString().slice(0, 13);
+  const wDateLabel = (iso) => { const d = new Date(iso + "T00:00:00Z"); return `${d.getUTCMonth() + 1}/${d.getUTCDate()}(${W_DAY_NAMES[d.getUTCDay()]})`; };
+  const pos = (x) => (x == null ? null : Math.max(0, x));
+  const numOrNull = (v) => (v === "" || v == null || isNaN(+v) ? null : +v);
+  function getJSON(url) {
+    return fetch(url).then((r) => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); });
+  }
+
+  // ----- 출처별로 불러와서 { hourly: {키: {t, p, r, w}}, daily: {날짜: {max, min, pop, w}} } 로 맞춤 -----
+  function wFetchOM(c) {
     const url = "https://api.open-meteo.com/v1/forecast?" + new URLSearchParams({
-      latitude: c.lat, longitude: c.lon, timezone: "Asia/Tokyo", forecast_days: 16, wind_speed_unit: "ms",
+      latitude: c.lat, longitude: c.lon, timezone: "Asia/Tokyo", forecast_days: 10, wind_speed_unit: "ms",
       hourly: "temperature_2m,precipitation_probability,precipitation,weather_code,is_day",
       current: "temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,precipitation,weather_code,is_day",
-      models: W_MODELS.map((m) => m[0]).join(","),
+      models: "best_match,ecmwf_ifs025,jma_seamless",
     });
-    fetch(url)
-      .then((r) => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
-      .then((data) => {
-        st.data = data; st.at = Date.now();
-        store.set("osaka-weather:" + city, { data, at: st.at }); // 데이터 끊겨도 마지막 예보는 보이게
-      })
-      .catch((err) => { st.error = err.message || "불러오기 실패"; })
-      .finally(() => { st.loading = false; if (tabName() === "weather") render(); });
+    return getJSON(url).then((d) => {
+      const h = d.hourly;
+      const mk = (m) => {
+        const out = {};
+        h.time.forEach((t, i) => {
+          const col = (v) => (h[`${v}_${m}`] || [])[i];
+          out[t.slice(0, 13)] = { t: col("temperature_2m"), p: col("precipitation_probability"), r: pos(col("precipitation")), w: wmo(col("weather_code"), col("is_day")) };
+        });
+        return out;
+      };
+      return { om: mk("best_match"), windy: mk("ecmwf_ifs025"), jmaModel: mk("jma_seamless"), cur: d.current };
+    });
+  }
+  function wFetchJMA(c) {
+    return getJSON(`https://www.jma.go.jp/bosai/forecast/data/forecast/${c.jma}.json`).then((d) => {
+      const hourly = {}, daily = {};
+      const day = (date) => daily[date] || (daily[date] = {});
+      const s = d[0].timeSeries;
+      // 6시간 단위 강수확률 → 그 6시간 모두에 채움
+      s[1].timeDefines.forEach((td, i) => {
+        const p = numOrNull(s[1].areas[0].pops[i]);
+        if (p == null) return;
+        for (let k = 0; k < 6; k++) hourly[jstKey(new Date(Date.parse(td) + k * 3600e3))] = { p };
+      });
+      s[0].timeDefines.forEach((td, i) => { day(td.slice(0, 10)).w = telop(+s[0].areas[0].weatherCodes[i]); });
+      const wk = d[1].timeSeries[0], tp = d[1].timeSeries[1];
+      wk.timeDefines.forEach((td, i) => {
+        const o = day(td.slice(0, 10));
+        const pop = numOrNull(wk.areas[0].pops[i]);
+        if (pop != null) o.pop = pop;
+        if (!o.w) o.w = telop(+wk.areas[0].weatherCodes[i]);
+        const mn = numOrNull(tp.areas[0].tempsMin[i]), mx = numOrNull(tp.areas[0].tempsMax[i]);
+        if (mn != null) o.min = mn;
+        if (mx != null) o.max = mx;
+      });
+      return { hourly, daily };
+    });
+  }
+  function wFetchMetno(c) {
+    return getJSON(`https://api.met.no/weatherapi/locationforecast/2.0/complete?lat=${c.lat.toFixed(4)}&lon=${c.lon.toFixed(4)}`).then((d) => {
+      const hourly = {};
+      d.properties.timeseries.forEach((e) => {
+        const t0 = Date.parse(e.time);
+        const temp = e.data.instant.details.air_temperature;
+        const n1 = e.data.next_1_hours, n6 = e.data.next_6_hours;
+        const prob = (n) => (n.details.probability_of_precipitation == null ? null : n.details.probability_of_precipitation);
+        if (n1) {
+          hourly[jstKey(new Date(t0))] = { t: temp, p: prob(n1), r: n1.details.precipitation_amount, w: yrSym(n1.summary.symbol_code) };
+        } else if (n6) {
+          // 3일째부터는 6시간 단위 → 강수량은 시간당으로 나눠 채움
+          for (let k = 0; k < 6; k++) {
+            hourly[jstKey(new Date(t0 + k * 3600e3))] = { t: k === 0 ? temp : null, p: prob(n6), r: n6.details.precipitation_amount / 6, w: yrSym(n6.summary.symbol_code) };
+          }
+        }
+      });
+      return { hourly, daily: {} };
+    });
+  }
+  function wFetchWN(c, city) {
+    return getJSON(WN_JSON + "?v=" + Math.floor(Date.now() / 600e3)).then((d) => {
+      const src = d.cities[city];
+      const hourly = {}, daily = {};
+      src.hourly.forEach((x) => { hourly[x.time] = { t: x.t, p: null, r: x.r, w: telop(x.wx) }; });
+      src.daily.forEach((x) => { daily[x.date] = { max: x.max, min: x.min, pop: x.pop, w: telop(x.wx) }; });
+      return { hourly, daily, updated: d.updated };
+    });
+  }
+  const W_FETCH = { om: wFetchOM, jma: wFetchJMA, metno: wFetchMetno, wn: wFetchWN };
+
+  function wSlot(city, id) {
+    const c = wState[city] || (wState[city] = {});
+    return c[id] || (c[id] = store.get(`osaka-wx:${city}:${id}`, {}));
+  }
+  function wLoadAll(city, force) {
+    Object.keys(W_FETCH).forEach((id) => {
+      const st = wSlot(city, id);
+      // 실패했으면 자동으로 계속 다시 부르지 않고 '새로고침' 버튼을 기다림
+      if (st.loading || (!force && (st.error || (st.data && Date.now() - st.at < W_TTL)))) return;
+      st.loading = true; st.error = null;
+      W_FETCH[id](W_CITIES[city], city)
+        .then((data) => {
+          st.data = data; st.at = Date.now();
+          store.set(`osaka-wx:${city}:${id}`, { data, at: st.at }); // 데이터 끊겨도 마지막 예보는 보이게
+        })
+        .catch((err) => { st.error = err.message || "불러오기 실패"; })
+        .finally(() => { st.loading = false; if (city === wCity) wRefresh(); });
+    });
   }
 
-  const wNowKey = () => new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 13); // "2026-10-24T15" (일본=한국 시간)
-  const wDateLabel = (iso) => { const d = new Date(iso + "T00:00:00Z"); return `${d.getUTCMonth() + 1}/${d.getUTCDate()}(${W_DAY_NAMES[d.getUTCDay()]})`; };
-
-  function wSeries(h, v, m, idxs) {
-    const arr = h[`${v}_${m}`] || [];
-    return idxs.map((i) => arr[i]).filter((x) => x != null);
-  }
-  function wSummary(h, m, idxs) {
-    const t = wSeries(h, "temperature_2m", m, idxs);
-    if (!t.length) return null;
-    const p = wSeries(h, "precipitation_probability", m, idxs);
-    const c = wSeries(h, "weather_code", m, idxs);
+  // 화면용 출처 5개 (일본 기상청은 공식 예보 + 시간별 기온·강수량은 기상청 모델로 보충)
+  function wSources(city) {
+    const om = wSlot(city, "om"), jma = wSlot(city, "jma"), me = wSlot(city, "metno"), wn = wSlot(city, "wn");
+    const omd = om.data || {};
+    const jmaHourly = {};
+    const model = omd.jmaModel || {}, official = (jma.data && jma.data.hourly) || {};
+    Object.keys(model).concat(Object.keys(official)).forEach((k) => {
+      jmaHourly[k] = Object.assign({}, model[k], { p: official[k] ? official[k].p : null });
+    });
+    const status = (st) => ({ loading: st.loading && !st.data, error: st.error && !st.data ? st.error : null });
     return {
-      max: Math.max(...t), min: Math.min(...t),
-      prob: p.length ? Math.max(...p) : null,
-      rain: wSeries(h, "precipitation", m, idxs).reduce((s, x) => s + Math.max(0, x), 0),
-      code: c.length ? Math.max(...c) : null,
+      om: { hourly: omd.om || {}, daily: {}, st: status(om) },
+      jma: { hourly: jmaHourly, daily: (jma.data && jma.data.daily) || {}, st: status(jma) },
+      windy: { hourly: omd.windy || {}, daily: {}, st: status(om) },
+      metno: { hourly: (me.data && me.data.hourly) || {}, daily: {}, st: status(me) },
+      wn: { hourly: (wn.data && wn.data.hourly) || {}, daily: (wn.data && wn.data.daily) || {}, st: status(wn) },
     };
   }
-  // 비 올 만한 시각들 → "9~11시, 15시"
-  function wRainHours(h, idxs) {
-    const hrs = idxs.filter((i) => {
-      const p = h.precipitation_probability_best_match[i], r = h.precipitation_best_match[i];
-      return (p != null && p >= 50) || (r != null && r >= 0.3);
-    }).map((i) => +h.time[i].slice(11, 13));
+  function wSummary(src, keys, date) {
+    const hs = keys.map((k) => src.hourly[k]);
+    const vals = (f, list) => list.filter(Boolean).map(f).filter((x) => x != null);
+    const t = vals((x) => x.t, hs), p = vals((x) => x.p, hs), r = vals((x) => x.r, hs);
+    const d = (date && src.daily[date]) || {};
+    const dayHs = hs.filter((x, i) => { const hr = +keys[i].slice(11, 13); return hr >= 6 && hr <= 21; });
+    let ws = vals((x) => x.w, dayHs);
+    if (!ws.length) ws = vals((x) => x.w, hs);
+    const worst = ws.length ? ws.reduce((a, b) => (b[2] > a[2] ? b : a)) : null;
+    const s = {
+      min: d.min != null ? d.min : t.length ? Math.min(...t) : null,
+      max: d.max != null ? d.max : t.length ? Math.max(...t) : null,
+      pop: d.pop != null ? d.pop : p.length ? Math.max(...p) : null,
+      rain: r.length >= keys.length * 0.75 ? r.reduce((a, b) => a + b, 0) : null, // 시간 대부분이 있어야 합계 표시
+      w: d.w || worst,
+    };
+    return s.min == null && s.max == null && s.pop == null && s.rain == null && !s.w ? null : s;
+  }
+  // 비 올 만한 시각들 → "9~11시, 15시" (종합 기준)
+  function wRainHours(hourly, keys) {
+    const hrs = keys.filter((k) => {
+      const x = hourly[k];
+      return x && ((x.p != null && x.p >= 50) || (x.r != null && x.r >= 0.3));
+    }).map((k) => +k.slice(11, 13));
     const ranges = [];
     hrs.forEach((x) => {
       const last = ranges[ranges.length - 1];
@@ -2333,101 +2490,130 @@ window.TRIP = {
     return ranges.map(([a, b]) => (a === b ? `${a}시` : `${a}~${b}시`)).join(", ");
   }
   const wTemp = (t) => (t == null ? "–" : Math.round(t) + "°");
-  const wMm = (r) => (r == null ? "–" : r < 0.05 ? "0" : r.toFixed(1));
-  const wPct = (p) => (p == null ? '<td class="na">–<\/td>' : `<td class="pct" style="--p:${(p / 100).toFixed(2)}">${p}<\/td>`);
+  const wMm = (r) => (r == null ? "–" : r < 0.05 ? "0" : r < 10 ? r.toFixed(1) : String(Math.round(r)));
+  const W_NA = '<td class="na">–<\/td>';
+  const wPct = (p) => (p == null ? W_NA : `<td class="pct" style="--p:${(p / 100).toFixed(2)}">${Math.round(p)}<\/td>`);
+  function wCell(x) {
+    if (!x) return W_NA;
+    if (wMetric === "p") return wPct(x.p);
+    if (wMetric === "r") return x.r == null ? W_NA : `<td class="mm">${wMm(x.r)}<\/td>`;
+    if (wMetric === "t") return x.t == null ? W_NA : `<td class="tmp">${wTemp(x.t)}<\/td>`;
+    return x.w ? `<td class="sky" title="${esc(x.w[1])}">${x.w[0]}<\/td>` : W_NA;
+  }
+  const W_NOTES = {
+    p: "기상청은 6시간 단위 확률이에요. 노르웨이 기상청·웨더뉴스는 시간별 확률을 주지 않아서 –로 나와요 (웨더뉴스 하루 확률은 위 비교표에 있어요).",
+    r: "단위 mm. 노르웨이 기상청은 3일째부터 6시간 강수량을 시간당으로 나눠 표시해요.",
+    t: "노르웨이 기상청은 3일째부터 6시간마다 기온을 줘요.",
+    w: "아이콘을 길게 누르면 설명이 나와요.",
+  };
 
   function renderWeather() {
-    const city = W_CITIES[wCity];
-    wLoad(wCity);
-    const st = wState[wCity];
-    const cityChips = Object.entries(W_CITIES).map(([id, c]) =>
-      `<button class="chip" role="tab" data-wcity="${id}" aria-selected="${id === wCity}">${c.name}<\/button>`).join("");
+    wLoadAll(wCity);
+    const c = W_CITIES[wCity];
+    const cityChips = Object.entries(W_CITIES).map(([id, x]) =>
+      `<button class="chip" role="tab" data-wcity="${id}" aria-selected="${id === wCity}">${x.name}<\/button>`).join("");
+    const windy = "https://embed.windy.com/embed.html?" + new URLSearchParams({
+      type: "map", location: "coordinates", metricRain: "mm", metricTemp: "°C", metricWind: "m/s", zoom: 9, overlay: "rain",
+      product: "ecmwf", level: "surface", lat: c.lat, lon: c.lon, detailLat: c.lat, detailLon: c.lon, detail: true, message: true,
+    });
+    return `
+      <div class="filters" role="tablist" aria-label="도시 선택" style="margin-top:18px">${cityChips}<\/div>
+      <div id="wbody">${wBody()}<\/div>
+
+      <h2 class="section-title">🌀 <span class="glow">Windy 비구름 지도<\/span><\/h2>
+      <div class="card wwindy"><iframe src="${esc(windy)}" title="Windy ${esc(c.name)} 비구름 지도와 시간별 예보" loading="lazy"><\/iframe><\/div>
+
+      <h2 class="section-title">🔗 <span class="glow">사이트에서 직접 보기<\/span><\/h2>
+      <div class="card wlinks">
+        <a class="btn" href="https://www.google.com/search?q=${encodeURIComponent(c.name + " 날씨")}" target="_blank" rel="noopener">구글 날씨<\/a>
+        <a class="btn ghost" href="https://www.jma.go.jp/bosai/forecast/#area_type=offices&area_code=${c.jma}" target="_blank" rel="noopener">일본 기상청<\/a>
+        <a class="btn ghost" href="https://www.windy.com/${c.lat}/${c.lon}?rain,${c.lat},${c.lon},10" target="_blank" rel="noopener">Windy<\/a>
+        <a class="btn ghost" href="${c.yr}" target="_blank" rel="noopener">노르웨이 기상청 (yr.no)<\/a>
+        <a class="btn ghost" href="${c.wn}" target="_blank" rel="noopener">웨더뉴스<\/a>
+        <a class="btn ghost" href="${c.tenki}" target="_blank" rel="noopener">tenki.jp<\/a>
+      <\/div>`;
+  }
+  // 날씨 탭 안쪽만 다시 그림 (Windy 지도는 새로 안 불러오게)
+  function wRefresh() {
+    const el = document.getElementById("wbody");
+    if (el && tabName() === "weather") el.innerHTML = wBody();
+  }
+
+  function wBody() {
+    const c = W_CITIES[wCity];
+    const src = wSources(wCity);
+    const om = wSlot(wCity, "om");
     const dayChips = [["now", "지금", "24시간"], ...TRIP_DATES.map((d, i) => [d, "DAY " + (i + 1), wDateLabel(d)])].map(([id, b, s]) =>
       `<button class="chip" role="tab" data-wday="${id}" aria-selected="${id === wDay}"><b>${b}<\/b><span>${s}<\/span><\/button>`).join("");
-    const links = `
-      <h2 class="section-title">🔗 <span class="glow">다른 날씨 사이트<\/span><\/h2>
-      <div class="card wlinks">
-        <a class="btn" href="https://www.google.com/search?q=${encodeURIComponent(city.name + " 날씨")}" target="_blank" rel="noopener">구글 날씨<\/a>
-        <a class="btn ghost" href="${city.tenki}" target="_blank" rel="noopener">tenki.jp<\/a>
-        <a class="btn ghost" href="${city.wn}" target="_blank" rel="noopener">웨더뉴스<\/a>
-        <a class="btn ghost" href="https://www.jma.go.jp/bosai/forecast/#area_type=offices&area_code=${city.jma}" target="_blank" rel="noopener">일본 기상청<\/a>
-        <a class="btn ghost" href="https://www.windy.com/${city.lat}/${city.lon}" target="_blank" rel="noopener">Windy<\/a>
-      <\/div>`;
-    const head = `
-      <div class="filters" role="tablist" aria-label="도시 선택" style="margin-top:18px">${cityChips}<\/div>`;
 
-    if (!st.data) {
-      const msg = st.error
-        ? `<p>날씨를 불러오지 못했어요 (${esc(st.error)})<\/p><button class="btn" data-wretry>다시 시도<\/button>`
-        : '<p class="muted">날씨 불러오는 중… ⛅<\/p>';
-      return head + `<div class="card" style="margin-top:12px">${msg}<\/div>` + links;
+    const cur = om.data && om.data.cur;
+    let curCard;
+    if (cur) {
+      const [e, txt] = wmo(cur.weather_code, cur.is_day);
+      curCard = `
+        <div class="card wnow">
+          <div class="emo" aria-hidden="true">${e}<\/div>
+          <div>
+            <div class="k">지금 ${esc(c.name)} · ${esc(txt)}<\/div>
+            <div class="t">${wTemp(cur.temperature_2m)}<\/div>
+            <div class="s">체감 ${wTemp(cur.apparent_temperature)} · 습도 ${cur.relative_humidity_2m}% · 바람 ${cur.wind_speed_10m}m/s${cur.precipitation > 0 ? ` · 비 ${wMm(cur.precipitation)}mm` : ""}<\/div>
+          <\/div>
+        <\/div>`;
+    } else {
+      curCard = `<div class="card" style="margin-top:12px">${om.error
+        ? `<p style="margin:0 0 8px">날씨를 불러오지 못했어요 (${esc(om.error)})<\/p><button class="btn" data-wretry>다시 시도<\/button>`
+        : '<p class="muted" style="margin:0">날씨 불러오는 중… ⛅<\/p>'}<\/div>`;
     }
 
-    const d = st.data, h = d.hourly, cur = d.current;
-    const nowKey = wNowKey();
-    let start = h.time.findIndex((t) => t.slice(0, 13) === nowKey);
-    if (start < 0) start = 0;
-    const range = (a, n) => Array.from({ length: n }, (_, k) => a + k).filter((i) => i < h.time.length);
-
-    let rows, all, title;
+    // 보여줄 시각들
+    let keys, rows, title, date = null;
     if (wDay === "now") {
-      rows = all = range(start, 24);
+      keys = rows = Array.from({ length: 24 }, (_, k) => jstKey(new Date(Date.now() + k * 3600e3)));
       title = "앞으로 24시간";
     } else {
-      all = h.time.map((t, i) => (t.startsWith(wDay) ? i : -1)).filter((i) => i >= 0);
-      rows = all.filter((i) => +h.time[i].slice(11, 13) >= 6);
-      title = wDateLabel(wDay) + " · DAY " + (TRIP_DATES.indexOf(wDay) + 1);
+      date = wDay;
+      keys = Array.from({ length: 24 }, (_, h) => `${date}T${String(h).padStart(2, "0")}`);
+      rows = keys.slice(6);
+      title = wDateLabel(date) + " · DAY " + (TRIP_DATES.indexOf(date) + 1);
     }
+    const nowKey = jstKey(new Date());
 
-    const [cEmo, cTxt] = wCode(cur.weather_code, cur.is_day);
-    const curCard = `
-      <div class="card wnow">
-        <div class="emo" aria-hidden="true">${cEmo}<\/div>
-        <div>
-          <div class="k">지금 ${esc(city.name)} · ${esc(cTxt)}<\/div>
-          <div class="t">${wTemp(cur.temperature_2m)}<\/div>
-          <div class="s">체감 ${wTemp(cur.apparent_temperature)} · 습도 ${cur.relative_humidity_2m}% · 바람 ${cur.wind_speed_10m}m/s${cur.precipitation > 0 ? ` · 비 ${wMm(cur.precipitation)}mm` : ""}<\/div>
-        <\/div>
-      <\/div>`;
-
+    const sums = W_SRC.map(([id, name, sub]) => ({ name, sub, st: src[id].st, s: wSummary(src[id], keys, date) }));
+    const have = sums.filter((x) => x.s);
     let body;
-    if (!rows.length) {
-      body = '<div class="card"><p class="muted" style="margin:0">이 날짜는 아직 예보가 없거나 지난 날짜예요<\/p><\/div>';
+    if (!have.length) {
+      body = `<div class="card"><p class="muted" style="margin:0">${sums.some((x) => x.st.loading) ? "예보 불러오는 중…" : "이 날짜는 아직 예보가 없거나 지난 날짜예요"}<\/p><\/div>`;
     } else {
-      const sums = W_MODELS.map(([m, name, en]) => [name, en, wSummary(h, m, all)]).filter((x) => x[2]);
-      const probs = sums.map((x) => x[2].prob).filter((p) => p != null);
+      const probs = have.map((x) => x.s.pop).filter((p) => p != null);
       const maxProb = probs.length ? Math.max(...probs) : 0;
-      const maxRain = Math.max(...sums.map((x) => x[2].rain));
-      const rainHrs = wRainHours(h, rows);
+      const rains = have.map((x) => x.s.rain).filter((r) => r != null);
+      const maxRain = rains.length ? Math.max(...rains) : 0;
+      const rainHrs = wRainHours(src.om.hourly, rows);
       const advice = maxProb >= 60 || maxRain >= 3 ? ["red", "☔ 비 올 가능성 높아요 — 우산 꼭 챙기기"]
         : maxProb >= 30 || maxRain >= 0.5 ? ["yellow", "🌂 비 올 수도 있어요 — 접이식 우산 추천"]
         : ["pink", "☀️ 비 걱정은 거의 없어요"];
 
-      const compare = sums.map(([name, en, s]) => {
-        const [e, txt] = wCode(s.code, 1);
-        return `<tr>
-          <th scope="row"><b>${esc(name)}<\/b><span>${esc(en)}<\/span><\/th>
-          <td class="sky"><span aria-hidden="true">${e}<\/span><span class="small">${esc(txt)}<\/span><\/td>
+      const compare = sums.map(({ name, sub, st, s }) => {
+        const label = `<th scope="row"><b>${esc(name)}<\/b><span>${esc(sub)}<\/span><\/th>`;
+        if (!s) {
+          const msg = st.loading ? "불러오는 중…" : st.error ? "⚠ 못 불러왔어요" : "이 날짜 예보 없음";
+          return `<tr>${label}<td colspan="4" class="na">${msg}<\/td><\/tr>`;
+        }
+        return `<tr>${label}
+          <td class="sky">${s.w ? `<span aria-hidden="true">${s.w[0]}<\/span><span class="small">${esc(s.w[1])}<\/span>` : "–"}<\/td>
           <td class="tmp"><span class="lo">${wTemp(s.min)}<\/span> / <span class="hi">${wTemp(s.max)}<\/span><\/td>
-          ${wPct(s.prob)}
+          ${wPct(s.pop)}
           <td class="mm">${wMm(s.rain)}<\/td>
         <\/tr>`;
       }).join("");
 
-      const hourly = rows.map((i) => {
-        const [e] = wCode(h.weather_code_best_match[i], h.is_day_best_match[i]);
-        const hr = h.time[i].slice(11, 13);
-        const isNow = h.time[i].slice(0, 13) === nowKey;
-        const label = wDay === "now" && h.time[i].slice(0, 10) !== h.time[start].slice(0, 10) && hr === "00"
-          ? `<small>${wDateLabel(h.time[i].slice(0, 10))}<\/small>${+hr}시` : `${+hr}시`;
-        return `<tr class="${isNow ? "now" : ""}">
-          <th scope="row">${isNow ? "지금" : label}<\/th>
-          <td class="sky" aria-label="${esc(wCode(h.weather_code_best_match[i], 1)[1])}">${e}<\/td>
-          <td class="tmp">${wTemp(h.temperature_2m_best_match[i])}<\/td>
-          <td class="mm">${wMm(h.precipitation_best_match[i])}<\/td>
-          ${W_PROB_COLS.map(([m]) => wPct((h[`precipitation_probability_${m}`] || [])[i])).join("")}
-          <td class="mm">${wMm((h.precipitation_jma_seamless || [])[i])}<\/td>
-        <\/tr>`;
+      const metricChips = W_METRICS.map(([id, label]) =>
+        `<button class="chip" role="tab" data-wmetric="${id}" aria-selected="${id === wMetric}">${label}<\/button>`).join("");
+      const hourly = rows.map((k) => {
+        const hr = +k.slice(11, 13);
+        const isNow = k === nowKey;
+        const label = isNow ? "지금" : wDay === "now" && hr === 0 ? `<small>${wDateLabel(k.slice(0, 10))}<\/small>${hr}시` : `${hr}시`;
+        return `<tr class="${isNow ? "now" : ""}"><th scope="row">${label}<\/th>${W_SRC.map(([id]) => wCell(src[id].hourly[k])).join("")}<\/tr>`;
       }).join("");
 
       body = `
@@ -2437,36 +2623,33 @@ window.TRIP = {
           ${rainHrs ? `<p class="small" style="margin:8px 0 0">🕒 비 올 만한 시간: <b>${rainHrs}<\/b><\/p>` : ""}
         <\/div>
 
-        <h2 class="section-title">📊 <span class="glow">업체별 예보 비교<\/span><\/h2>
+        <h2 class="section-title">📊 <span class="glow">출처별 예보 비교<\/span><\/h2>
         <div class="card wtable-wrap">
           <table class="wtable compare">
-            <thead><tr><th scope="col">예보 기관<\/th><th scope="col">날씨<\/th><th scope="col">최저/최고<\/th><th scope="col">비 확률<\/th><th scope="col">강수량<\/th><\/tr><\/thead>
+            <thead><tr><th scope="col">출처<\/th><th scope="col">날씨<\/th><th scope="col">최저/최고<\/th><th scope="col">비 확률<\/th><th scope="col">강수량<\/th><\/tr><\/thead>
             <tbody>${compare}<\/tbody>
           <\/table>
-          <p class="small muted" style="margin:8px 0 0">비 확률은 % · 강수량은 mm (${wDay === "now" ? "24시간" : "하루"} 합계). 일본 기상청은 확률을 주지 않아요. 기관마다 다르면 높은 쪽 기준으로 준비하세요.<\/p>
+          <p class="small muted" style="margin:8px 14px 0">비 확률 % · 강수량 mm (${wDay === "now" ? "24시간" : "하루"} 합계). 출처마다 다르면 높은 쪽 기준으로 준비하세요.<\/p>
         <\/div>
 
         <h2 class="section-title">⏱️ <span class="glow">시간별 날씨<\/span><\/h2>
+        <div class="filters" role="tablist" aria-label="항목 선택">${metricChips}<\/div>
         <div class="card wtable-wrap">
           <table class="wtable hourly">
-            <thead>
-              <tr><th rowspan="2" scope="col">시각<\/th><th rowspan="2" scope="col">날씨<\/th><th rowspan="2" scope="col">기온<\/th><th rowspan="2" scope="col">강수량<br>mm<\/th><th colspan="4" scope="colgroup">비 올 확률 %<\/th><th rowspan="2" scope="col">일본<br>기상청<br>mm<\/th><\/tr>
-              <tr>${W_PROB_COLS.map(([, n]) => `<th scope="col">${n}<\/th>`).join("")}<\/tr>
-            <\/thead>
+            <thead><tr><th scope="col">시각<\/th>${W_SRC.map(([, , , h]) => `<th scope="col">${h}<\/th>`).join("")}<\/tr><\/thead>
             <tbody>${hourly}<\/tbody>
           <\/table>
         <\/div>
-        <p class="small muted">← 표는 옆으로 밀어서 볼 수 있어요 · 날씨·기온·강수량은 종합 예보 기준<\/p>`;
+        <p class="small muted">${W_NOTES[wMetric]}<\/p>`;
     }
 
-    const updated = new Date(st.at + 9 * 3600e3).toISOString().slice(11, 16);
-    return head + curCard + `
+    const updated = om.at ? new Date(om.at + 9 * 3600e3).toISOString().slice(11, 16) : "–";
+    const loading = Object.keys(W_FETCH).some((id) => wSlot(wCity, id).loading);
+    return curCard + `
       <div class="filters" role="tablist" aria-label="날짜 선택">${dayChips}<\/div>
       ${body}
-      <p class="small muted wmeta">업데이트 ${updated} (한국·일본 시간)${st.loading ? " · 새로 불러오는 중…" : ""}${st.error ? " · ⚠ 최신 예보를 못 불러와 저장된 예보 표시" : ""}
-        <button class="btn ghost" data-wretry>새로고침<\/button><\/p>
-      <p class="small muted">예보 데이터: Open-Meteo (일본 기상청·ECMWF·NOAA·DWD 모델)<\/p>
-      ${links}`;
+      <p class="small muted wmeta"><span>업데이트 ${updated} (한국·일본 시간)${loading ? " · 불러오는 중…" : ""}<\/span>
+        <button class="btn ghost" data-wretry>새로고침<\/button><\/p>`;
   }
 
   // ---------- 라우터 ----------
@@ -2501,8 +2684,10 @@ window.TRIP = {
     const wc = e.target.closest("[data-wcity]");
     if (wc) { wCity = wc.dataset.wcity; render(); return; }
     const wd = e.target.closest("[data-wday]");
-    if (wd) { wDay = wd.dataset.wday; render(); return; }
-    if (e.target.closest("[data-wretry]")) { wLoad(wCity, true); render(); return; }
+    if (wd) { wDay = wd.dataset.wday; wRefresh(); return; }
+    const wm = e.target.closest("[data-wmetric]");
+    if (wm) { wMetric = wm.dataset.wmetric; wRefresh(); return; }
+    if (e.target.closest("[data-wretry]")) { wLoadAll(wCity, true); wRefresh(); return; }
     const c = e.target.closest("[data-copy]");
     if (c) {
       const text = c.dataset.copy;
