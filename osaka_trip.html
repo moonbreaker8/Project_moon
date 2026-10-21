@@ -2242,7 +2242,7 @@ window.TRIP = {
   }
 
   // ---------- 화면: 날씨 ----------
-  // 출처 5곳을 나란히 비교: 종합(Open-Meteo) · 일본 기상청(공식 예보) · Windy(기본 모델 ECMWF)
+  // 출처 5곳을 나란히 비교: 종합(아래 예보들 + 미국 GFS·독일 ICON 평균) · 일본 기상청(공식 예보) · Windy(기본 모델 ECMWF)
   // · 노르웨이 기상청(MET Norway) · 웨더뉴스(공개 API가 없어 GitHub Actions 가 1시간마다 weathernews.json 으로 저장)
   const W_CITIES = {
     osaka: {
@@ -2258,7 +2258,7 @@ window.TRIP = {
   };
   // [id, 이름, 설명, 표 머리글]
   const W_SRC = [
-    ["om", "종합", "여러 모델 자동 조합", "종합"],
+    ["om", "종합", "여러 예보 평균", "종합"],
     ["jma", "일본 기상청", "JMA 공식 예보", "기상청"],
     ["windy", "Windy", "기본 모델 ECMWF", "Windy"],
     ["metno", "노르웨이 기상청", "MET Norway · yr.no", "노르웨이"],
@@ -2349,7 +2349,7 @@ window.TRIP = {
       latitude: c.lat, longitude: c.lon, timezone: "Asia/Tokyo", forecast_days: 10, wind_speed_unit: "ms",
       hourly: "temperature_2m,precipitation_probability,precipitation,weather_code,is_day",
       current: "temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,precipitation,weather_code,is_day",
-      models: "best_match,ecmwf_ifs025,jma_seamless",
+      models: "best_match,ecmwf_ifs025,jma_seamless,gfs_seamless,icon_seamless",
     });
     return getJSON(url).then((d) => {
       const h = d.hourly;
@@ -2361,7 +2361,7 @@ window.TRIP = {
         });
         return out;
       };
-      return { om: mk("best_match"), windy: mk("ecmwf_ifs025"), jmaModel: mk("jma_seamless"), cur: d.current };
+      return { om: mk("best_match"), windy: mk("ecmwf_ifs025"), jmaModel: mk("jma_seamless"), gfs: mk("gfs_seamless"), icon: mk("icon_seamless"), cur: d.current };
     });
   }
   function wFetchJMA(c) {
@@ -2449,13 +2449,24 @@ window.TRIP = {
     Object.keys(model).concat(Object.keys(official)).forEach((k) => {
       jmaHourly[k] = Object.assign({}, model[k], { p: official[k] ? official[k].p : null });
     });
+    const meH = (me.data && me.data.hourly) || {}, wnH = (wn.data && wn.data.hourly) || {};
+    // 종합 = 시간마다 있는 예보들의 평균 (날씨 아이콘만 Open-Meteo 자동 조합)
+    const parts = [omd.windy, omd.gfs, omd.icon, jmaHourly, meH, wnH].filter(Boolean);
+    const combined = {};
+    Object.keys(omd.om || {}).forEach((k) => {
+      const avg = (v) => {
+        const xs = parts.map((h) => h[k] && h[k][v]).filter((x) => x != null);
+        return xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null;
+      };
+      combined[k] = { t: avg("t"), p: avg("p"), r: avg("r"), w: omd.om[k].w };
+    });
     const status = (st) => ({ loading: st.loading && !st.data, error: st.error && !st.data ? st.error : null });
     return {
-      om: { hourly: omd.om || {}, daily: {}, st: status(om) },
+      om: { hourly: combined, daily: {}, st: status(om) },
       jma: { hourly: jmaHourly, daily: (jma.data && jma.data.daily) || {}, st: status(jma) },
       windy: { hourly: omd.windy || {}, daily: {}, st: status(om) },
-      metno: { hourly: (me.data && me.data.hourly) || {}, daily: {}, st: status(me) },
-      wn: { hourly: (wn.data && wn.data.hourly) || {}, daily: (wn.data && wn.data.daily) || {}, st: status(wn) },
+      metno: { hourly: meH, daily: {}, st: status(me) },
+      wn: { hourly: wnH, daily: (wn.data && wn.data.daily) || {}, st: status(wn) },
     };
   }
   function wSummary(src, keys, date) {
@@ -2501,7 +2512,7 @@ window.TRIP = {
     return x.w ? `<td class="sky" title="${esc(x.w[1])}">${x.w[0]}<\/td>` : W_NA;
   }
   const W_NOTES = {
-    p: "기상청은 6시간 단위 확률이에요. 노르웨이 기상청·웨더뉴스는 시간별 확률을 주지 않아서 –로 나와요 (웨더뉴스 하루 확률은 위 비교표에 있어요).",
+    p: "종합은 확률을 주는 예보들(기상청·Windy·미국·독일)의 평균이에요. 기상청은 오늘·내일만 6시간 단위 확률이 있어요. 노르웨이 기상청·웨더뉴스는 시간별 확률을 주지 않아서 –로 나와요 (웨더뉴스 하루 확률은 위 비교표에 있어요).",
     r: "단위 mm. 노르웨이 기상청은 3일째부터 6시간 강수량을 시간당으로 나눠 표시해요.",
     t: "노르웨이 기상청은 3일째부터 6시간마다 기온을 줘요.",
     w: "아이콘을 길게 누르면 설명이 나와요.",
